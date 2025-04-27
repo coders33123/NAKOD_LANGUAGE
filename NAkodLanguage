@@ -1,0 +1,7 @@
+your_project_name/
+├── experiments/
+│   └── hidden_rules_detection.py  # Your current Streamlit app
+├── utils/
+│   └── (potentially other utility functions later)
+├── README.md                      # Project description
+└── requirements.txt               # List of dependencies
