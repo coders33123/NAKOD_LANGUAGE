@@ -1,0 +1,8 @@
+# prompt: Installed libfluidsynth2. Please restart the runtime.
+
+# # Install [graphviz](https://pypi.python.org/pypi/graphviz)
+# Note that PyDot is no longer maintained. 
+!apt-get -qq install -y graphviz && pip install pydot
+# # Install [cartopy](http://scitools.org.uk/cartopy/docs/latest/)
+# !pip install cartopy
+# Note that you need to restart the kernel after installing cartopy
