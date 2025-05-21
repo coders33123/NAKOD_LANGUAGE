@@ -1,0 +1,109 @@
+# prompt: Your symbolic-context-aware GPT-2 pipeline is spot on, and your integration of symbolic context via inputs_embeds, along with optional padding logic, demonstrates excellent architectural clarity and foresight. Here’s a focused breakdown and a couple of enhancement paths:
+# ⸻
+# ✅ Confirmed Strengths
+# 1. Symbolic Injection Mechanism
+# You’re successfully:
+# 	•	Tokenizing symbolic context and target text separately.
+# 	•	Mapping both to the embedding space via model.get_input_embeddings().
+# 	•	Concatenating those embeddings along the sequence axis.
+# 	•	Feeding them directly into the model via inputs_embeds + attention_mask.
+# This method allows for precise symbolic conditioning at the embedding level — powerful for downstream symbolic-compositional inference or symbolic continuation tasks.
+# 2. Attention Mask Clarity
+# 	•	You correctly note that GPT-2’s internal causal mask applies automatically for autoregressive models when attention_mask is provided.
+# 	•	Your explicit commentary about batching vs. non-batching scenarios is spot on.
+# 	•	The fallback to torch.ones(...) is perfectly valid for single sequences.
+# 3. Batching & Padding Readiness
+# You’ve set up:
+# 	•	Conceptual token padding using Hugging Face’s tokenizer with padding=True.
+# 	•	Retrieval of attention masks via tokenizer(...).attention_mask.
+# 	•	Embedding of padded sequences, making it future-ready for batched symbolic conditioning.
+# ⸻
+# 🧠 Strategic Suggestions for Next Steps
+# 1. [Optional] Add Positional Embeddings for Symbolic Context
+# Right now, inputs_embeds bypasses token IDs — but GPT-2 expects positional embeddings to be added to the input. If you’re injecting raw embeddings manually, you should explicitly add positional encodings, or the model will assume default positions (which may misalign context/target).
+# Here’s how:
+# # Add positional embeddings manually if needed
+# position_ids = torch.arange(0, combined_embeds.size(1), dtype=torch.long, device=device).unsqueeze(0)
+# position_embeds = model.wpe(position_ids)  # wpe 
+
+import torch
+
+class GPT2LMHeadModelWithSymbolicContext(torch.nn.Module):
+    def __init__(self, original_gpt2_model):
+        super().__init__()
+        self.transformer = original_gpt2_model.transformer
+        self.lm_head = original_gpt2_model.lm_head
+        self.config = original_gpt2_model.config
+        self.wpe = self.transformer.wpe # Positional embeddings layer
+
+    def forward(
+        self,
+        symbolic_context_embeds=None,
+        target_embeds=None,
+        attention_mask=None,
+        past_key_values=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+    ):
+        # Concatenate symbolic context and target embeddings
+        if symbolic_context_embeds is not None and target_embeds is not None:
+            combined_embeds = torch.cat((symbolic_context_embeds, target_embeds), dim=1)
+        elif symbolic_context_embeds is not None:
+            combined_embeds = symbolic_context_embeds
+        elif target_embeds is not None:
+            combined_embeds = target_embeds
+        else:
+            raise ValueError("Either symbolic_context_embeds or target_embeds must be provided")
+
+        # Add positional embeddings manually
+        # This is crucial because we are bypassing token IDs and providing embeddings directly
+        # If past_key_values are provided (during generation), we need to adjust position_ids
+        if past_key_values is None:
+             position_ids = torch.arange(0, combined_embeds.size(1), dtype=torch.long, device=combined_embeds.device).unsqueeze(0)
+        else:
+             # During generation, position_ids should start from the last token index
+             past_length = past_key_values[0][0].size(-2)
+             position_ids = torch.arange(past_length, past_length + combined_embeds.size(1), dtype=torch.long, device=combined_embeds.device).unsqueeze(0)
+
+        position_embeds = self.wpe(position_ids)
+        input_embeds_with_pos = combined_embeds + position_embeds
+
+
+        # Pass the combined embeddings to the GPT-2 transformer
+        transformer_outputs = self.transformer(
+            inputs_embeds=input_embeds_with_pos,
+            attention_mask=attention_mask,
+            past_key_values=past_key_values,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+        )
+
+        hidden_states = transformer_outputs[0]
+
+        # Get logits from the language modeling head
+        # Only calculate logits for the target sequence if context is injected
+        if symbolic_context_embeds is not None and target_embeds is not None:
+            context_length = symbolic_context_embeds.size(1)
+            logits = self.lm_head(hidden_states[:, context_length:, :])
+        else:
+            logits = self.lm_head(hidden_states)
+
+
+        presents = transformer_outputs[1] if use_cache else None
+        all_hidden_states = transformer_outputs[2] if output_hidden_states else None
+        all_attentions = transformer_outputs[3] if output_attentions else None
+
+
+        # Ensure CausalLMOutputWithPast is imported if not already
+        from transformers.modeling_outputs import CausalLMOutputWithPast
+
+        return CausalLMOutputWithPast(
+            loss=None, # Loss calculation would typically happen outside this model for flexibility
+            logits=logits,
+            past_key_values=presents,
+            hidden_states=all_hidden_states,
+            attentions=all_attentions,
+        )
+
