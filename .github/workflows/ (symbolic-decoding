@@ -11,3 +11,61 @@ symbolic-decoding/
 ├── .gitignore                        # Ignore build/log files
 ├── requirements.txt
 └── README.md
+Applying Action Sequence ---
+Initial State: State(['A', 'B', 'A'])
+Applied: INVERT -> State(['A', 'B', 'A'])
+Applied: ADD A -> State(['A', 'B', 'A', 'A'])
+Applied: ROTATE -> State(['B', 'A', 'A', 'A'])
+
+Final State: State(['B', 'A', 'A', 'A'])
+Action History: ['INVERT', 'ADD A', 'ROTATE']
+
+--- Checking Involution ---
+
+Checking Involution for 'INVERT':
+  Initial: State(['A', 'B', 'A'])
+  After 1: State(['A', 'B', 'A'])
+  After 2: State(['A', 'B', 'A'])
+  Is Involutive: True
+
+--- Checking Inverse Pair ---
+
+Checking Inverse Pair: 'ADD A' and 'REMOVE A':
+  Initial: State(['A', 'B', 'A'])
+  After 'ADD A': State(['A', 'B', 'A', 'A'])
+  After 'REMOVE A': State(['B', 'A', 'A'])
+  Restore original state: False
+  Restore original state (reversed order): False
+
+Checking Inverse Pair: 'ROTATE' and 'ROTATE INV':
+  Initial: State(['A', 'B', 'A'])
+  After 'ROTATE': State(['B', 'A', 'A'])
+  After 'ROTATE INV': State(['A', 'B', 'A'])
+  Restore original state: True
+  Restore original state (reversed order): True
+
+Checking Involution for 'ADD A':
+  Initial: State(['A', 'B', 'A'])
+  After 1: State(['A', 'B', 'A', 'A'])
+  After 2: State(['A', 'B', 'A', 'A', 'A'])
+  Is Involutive: False
+
+--- Applying a 'Rule' Sequence ---
+Initial State: State(['A', 'A'])
+Applied: REMOVE A -> State(['A'])
+Applied: REMOVE A -> State([])
+
+Checking Involution for 'INVERT':
+  Initial: State(['B', 'A'])
+  After 1: State(['A', 'B'])
+  After 2: State(['B', 'A'])
+  Is Involutive: True
+Self-check confirmed: Applying 'INVERT' twice restored the initial state.
+
+Checking Inverse Pair: 'ADD A' and 'REMOVE A':
+  Initial: State(['A', 'B'])
+  After 'ADD A': State(['A', 'B', 'A'])
+  After 'REMOVE A': State(['B', 'A'])
+  Restore original state: False
+  Restore original state (reversed order): False
+Self-check failed: Applying 'ADD A' then 'REMOVE A' did NOT restore the initial state.
